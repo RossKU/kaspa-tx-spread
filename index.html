@@ -504,7 +504,7 @@ const Chart = {
 function processBlock(blockInfo) {
     State.totalBlocks++;
 
-    const blockHash = blockInfo.header.hash;
+    const blockHash = String(blockInfo.header.hash);
     const timestamp = Date.now();
 
     // Skip coinbase (index 0), process remaining TXs
@@ -513,8 +513,9 @@ function processBlock(blockInfo) {
 
     for (let i = 1; i < txs.length; i++) {
         const tx = txs[i];
-        const txid = tx.verboseData?.transactionId || tx.id || tx.transactionId;
-        if (!txid) continue;
+        const raw = tx.verboseData?.transactionId || tx.id || tx.transactionId;
+        if (!raw) continue;
+        const txid = String(raw);
 
         let entry = State.txMap.get(txid);
         if (!entry) {
