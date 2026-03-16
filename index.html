@@ -679,53 +679,49 @@ async function main() {
 
         // Subscribe to block-added events
         State.rpcClient.addEventListener('block-added', (event) => {
+            // Process block FIRST (never let debug break this)
             try {
                 const block = event.data.block;
-
-                // Debug: show block structure on first few blocks
-                if (State.totalBlocks < 5) {
-                    const dbg = document.getElementById('debug-banner');
-                    dbg.style.display = 'block';
-                    try {
-                        const keys = block ? Object.getOwnPropertyNames(block).concat(Object.keys(block)) : ['null'];
-                        const uniqKeys = [...new Set(keys)];
-                        let msg = `Block #${State.totalBlocks} keys: [${uniqKeys.join(', ')}]\n`;
-
-                        // Try multiple ways to access transactions
-                        const tries = ['transactions', 'txs', 'body', 'verboseData'];
-                        for (const k of tries) {
-                            const val = block?.[k];
-                            msg += `  .${k} = ${val === undefined ? 'undefined' : (val === null ? 'null' : (Array.isArray(val) ? 'Array(' + val.length + ')' : typeof val))}\n`;
-                        }
-
-                        // Try event.data directly
-                        const edKeys = event.data ? Object.keys(event.data) : ['no event.data'];
-                        msg += `event.data keys: [${edKeys.join(', ')}]\n`;
-
-                        // If transactions exist, show first TX keys
-                        const txs = block?.transactions;
-                        if (Array.isArray(txs) && txs.length > 0) {
-                            const tx0 = txs[0];
-                            const tx0keys = tx0 ? [...new Set(Object.getOwnPropertyNames(tx0).concat(Object.keys(tx0)))] : ['null'];
-                            msg += `tx[0] keys: [${tx0keys.join(', ')}]\n`;
-                            msg += `tx[0].id = ${tx0?.id}\n`;
-                            msg += `txs.length = ${txs.length}\n`;
-                        }
-
-                        // Stringify a slice of event.data
-                        try {
-                            const sample = JSON.stringify(event.data, (k, v) => typeof v === 'bigint' ? v.toString() : v)?.slice(0, 500);
-                            msg += `event.data sample: ${sample}\n`;
-                        } catch(e2) { msg += `stringify err: ${e2.message}\n`; }
-
-                        dbg.textContent += msg + '---\n';
-                    } catch(e2) { dbg.textContent += `debug err: ${e2.message}\n`; }
-                }
-
                 processBlock(block);
             } catch (e) {
-                DOM.tableInfo.textContent = 'ERR: ' + e.message;
-                console.error('Block processing error:', e);
+                DOM.tableInfo.textContent = 'ERR processBlock: ' + e.message;
+            }
+
+            // Debug: show block structure (separate try-catch)
+            if (State.totalBlocks <= 5) {
+                const dbg = document.getElementById('debug-banner');
+                dbg.style.display = 'block';
+                try {
+                    const block = event.data.block;
+                    const keys = block ? Object.getOwnPropertyNames(block).slice(0, 20) : ['null'];
+                    let msg = `Block #${State.totalBlocks} keys: [${keys.join(', ')}]\n`;
+
+                    // Check transactions field
+                    const txs = block?.transactions;
+                    msg += `  .transactions type=${typeof txs}, isArray=${Array.isArray(txs)}`;
+                    if (Array.isArray(txs)) msg += `, len=${txs.length}`;
+                    msg += '\n';
+
+                    // If transactions exist, inspect first TX
+                    if (Array.isArray(txs) && txs.length > 0) {
+                        const tx0 = txs[0];
+                        msg += `  tx[0] type=${typeof tx0}\n`;
+                        if (tx0) {
+                            const tk = Object.getOwnPropertyNames(tx0).slice(0, 15);
+                            msg += `  tx[0] keys: [${tk.join(', ')}]\n`;
+                            msg += `  tx[0].id = ${String(tx0.id)}\n`;
+                            msg += `  tx[0].transactionId = ${String(tx0.transactionId)}\n`;
+                        }
+                    } else if (txs && !Array.isArray(txs)) {
+                        msg += `  txs value: ${String(txs).slice(0, 100)}\n`;
+                    }
+
+                    // Check event.data keys
+                    const edKeys = event.data ? Object.keys(event.data) : [];
+                    msg += `  event.data keys: [${edKeys.join(', ')}]\n`;
+
+                    dbg.textContent += msg + '---\n';
+                } catch(e2) { dbg.textContent += `debug err: ${e2.message}\n`; }
             }
         });
 
