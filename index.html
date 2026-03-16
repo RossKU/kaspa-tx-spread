@@ -301,9 +301,6 @@ td.time {
     </div>
 </div>
 
-<!-- Debug banner -->
-<div id="debug-banner" style="background:#2a1a00;color:#ffa502;padding:10px 20px;font-family:monospace;font-size:13px;white-space:pre-wrap;max-height:120px;overflow-y:auto;display:none;"></div>
-
 <!-- Main -->
 <div class="main">
 
@@ -356,7 +353,6 @@ const CONFIG = {
     MAX_CHART_BARS: 150,        // Max bars visible on chart
     MAX_TABLE_ROWS: 200,        // Max rows in table
     MAX_TRACKED_TXS: 5000,      // Ring buffer size for TX tracking
-    SETTLE_TIME_MS: 10000,      // Wait 10s before considering TX "settled"
     CHART_UPDATE_INTERVAL: 1000, // Chart redraw interval
     TABLE_UPDATE_INTERVAL: 500,  // Table update interval
 };
@@ -371,9 +367,8 @@ const State = {
 
     // TX tracking: txid -> { blockHashes: Set, firstSeen: timestamp }
     txMap: new Map(),
-    // Insertion-order ring: array of txids
+    // Insertion-order: array of txids
     txOrder: [],
-    txOrderHead: 0,
 
     // Stats
     totalBlocks: 0,
@@ -600,17 +595,11 @@ function formatTime(ts) {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function truncateTxid(txid) {
-    if (txid.length <= 20) return txid;
-    return txid.slice(0, 10) + '...' + txid.slice(-8);
-}
-
 function updateTable() {
     const len = State.txOrder.length;
     const start = Math.max(0, len - CONFIG.MAX_TABLE_ROWS);
     const fragment = document.createDocumentFragment();
 
-    // Build rows newest-first
     for (let i = len - 1; i >= start; i--) {
         const txid = State.txOrder[i];
         const entry = State.txMap.get(txid);
@@ -620,7 +609,7 @@ function updateTable() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="time">${formatTime(entry.firstSeen)}</td>
-            <td class="txid" title="${txid}">${truncateTxid(txid)}</td>
+            <td class="txid">${txid}</td>
             <td class="count ${countClass(count)}">${count}</td>
         `;
         fragment.appendChild(tr);
@@ -679,52 +668,9 @@ async function main() {
 
         // Subscribe to block-added events
         State.rpcClient.addEventListener('block-added', (event) => {
-            // Process block FIRST (never let debug break this)
             try {
-                const block = event.data.block;
-                processBlock(block);
-            } catch (e) {
-                DOM.tableInfo.textContent = 'ERR processBlock: ' + e.message;
-            }
-
-            // Debug: show block structure (separate try-catch)
-            if (State.totalBlocks <= 5) {
-                const dbg = document.getElementById('debug-banner');
-                dbg.style.display = 'block';
-                try {
-                    const block = event.data.block;
-                    const keys = block ? Object.getOwnPropertyNames(block).slice(0, 20) : ['null'];
-                    let msg = `Block #${State.totalBlocks} keys: [${keys.join(', ')}]\n`;
-
-                    // Check transactions field
-                    const txs = block?.transactions;
-                    msg += `  .transactions type=${typeof txs}, isArray=${Array.isArray(txs)}`;
-                    if (Array.isArray(txs)) msg += `, len=${txs.length}`;
-                    msg += '\n';
-
-                    // If transactions exist, inspect first TX
-                    if (Array.isArray(txs) && txs.length > 0) {
-                        const tx0 = txs[0];
-                        msg += `  tx[0] type=${typeof tx0}\n`;
-                        if (tx0) {
-                            const tk = Object.getOwnPropertyNames(tx0).slice(0, 15);
-                            msg += `  tx[0] keys: [${tk.join(', ')}]\n`;
-                            msg += `  tx[0].id = ${String(tx0.id)}\n`;
-                            msg += `  tx[0].verboseData?.transactionId = ${String(tx0.verboseData?.transactionId)}\n`;
-                            const vdKeys = tx0.verboseData ? Object.keys(tx0.verboseData) : [];
-                            msg += `  tx[0].verboseData keys: [${vdKeys.join(', ')}]\n`;
-                        }
-                    } else if (txs && !Array.isArray(txs)) {
-                        msg += `  txs value: ${String(txs).slice(0, 100)}\n`;
-                    }
-
-                    // Check event.data keys
-                    const edKeys = event.data ? Object.keys(event.data) : [];
-                    msg += `  event.data keys: [${edKeys.join(', ')}]\n`;
-
-                    dbg.textContent += msg + '---\n';
-                } catch(e2) { dbg.textContent += `debug err: ${e2.message}\n`; }
-            }
+                processBlock(event.data.block);
+            } catch (_) {}
         });
 
         await State.rpcClient.subscribeBlockAdded();
