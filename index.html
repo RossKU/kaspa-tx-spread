@@ -678,8 +678,28 @@ async function main() {
         State.rpcClient.addEventListener('block-added', (event) => {
             try {
                 const block = event.data.block;
+
+                // Debug: show block structure on first few blocks
+                if (State.totalBlocks < 3) {
+                    const keys = Object.keys(block || {});
+                    const txField = block?.transactions;
+                    const txLen = Array.isArray(txField) ? txField.length : (txField ? 'non-array:' + typeof txField : 'undefined');
+                    const debugInfo = `Block keys: [${keys}] | txs: ${txLen}`;
+                    // Also try to stringify a tx if available
+                    let txSample = 'none';
+                    if (Array.isArray(txField) && txField.length > 0) {
+                        const t = txField[0];
+                        txSample = JSON.stringify(Object.keys(t || {}));
+                    }
+                    DOM.tableInfo.textContent = `DBG: ${debugInfo} | tx0 keys: ${txSample}`;
+                    console.log('block-added event.data:', JSON.stringify(event.data, null, 2)?.slice(0, 2000));
+                    console.log('block object:', block);
+                    console.log('block.transactions:', block?.transactions);
+                }
+
                 processBlock(block);
             } catch (e) {
+                DOM.tableInfo.textContent = 'ERR: ' + e.message;
                 console.error('Block processing error:', e);
             }
         });
