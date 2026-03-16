@@ -301,6 +301,9 @@ td.time {
     </div>
 </div>
 
+<!-- Debug banner -->
+<div id="debug-banner" style="background:#2a1a00;color:#ffa502;padding:10px 20px;font-family:monospace;font-size:13px;white-space:pre-wrap;max-height:120px;overflow-y:auto;display:none;"></div>
+
 <!-- Main -->
 <div class="main">
 
@@ -680,21 +683,43 @@ async function main() {
                 const block = event.data.block;
 
                 // Debug: show block structure on first few blocks
-                if (State.totalBlocks < 3) {
-                    const keys = Object.keys(block || {});
-                    const txField = block?.transactions;
-                    const txLen = Array.isArray(txField) ? txField.length : (txField ? 'non-array:' + typeof txField : 'undefined');
-                    const debugInfo = `Block keys: [${keys}] | txs: ${txLen}`;
-                    // Also try to stringify a tx if available
-                    let txSample = 'none';
-                    if (Array.isArray(txField) && txField.length > 0) {
-                        const t = txField[0];
-                        txSample = JSON.stringify(Object.keys(t || {}));
-                    }
-                    DOM.tableInfo.textContent = `DBG: ${debugInfo} | tx0 keys: ${txSample}`;
-                    console.log('block-added event.data:', JSON.stringify(event.data, null, 2)?.slice(0, 2000));
-                    console.log('block object:', block);
-                    console.log('block.transactions:', block?.transactions);
+                if (State.totalBlocks < 5) {
+                    const dbg = document.getElementById('debug-banner');
+                    dbg.style.display = 'block';
+                    try {
+                        const keys = block ? Object.getOwnPropertyNames(block).concat(Object.keys(block)) : ['null'];
+                        const uniqKeys = [...new Set(keys)];
+                        let msg = `Block #${State.totalBlocks} keys: [${uniqKeys.join(', ')}]\n`;
+
+                        // Try multiple ways to access transactions
+                        const tries = ['transactions', 'txs', 'body', 'verboseData'];
+                        for (const k of tries) {
+                            const val = block?.[k];
+                            msg += `  .${k} = ${val === undefined ? 'undefined' : (val === null ? 'null' : (Array.isArray(val) ? 'Array(' + val.length + ')' : typeof val))}\n`;
+                        }
+
+                        // Try event.data directly
+                        const edKeys = event.data ? Object.keys(event.data) : ['no event.data'];
+                        msg += `event.data keys: [${edKeys.join(', ')}]\n`;
+
+                        // If transactions exist, show first TX keys
+                        const txs = block?.transactions;
+                        if (Array.isArray(txs) && txs.length > 0) {
+                            const tx0 = txs[0];
+                            const tx0keys = tx0 ? [...new Set(Object.getOwnPropertyNames(tx0).concat(Object.keys(tx0)))] : ['null'];
+                            msg += `tx[0] keys: [${tx0keys.join(', ')}]\n`;
+                            msg += `tx[0].id = ${tx0?.id}\n`;
+                            msg += `txs.length = ${txs.length}\n`;
+                        }
+
+                        // Stringify a slice of event.data
+                        try {
+                            const sample = JSON.stringify(event.data, (k, v) => typeof v === 'bigint' ? v.toString() : v)?.slice(0, 500);
+                            msg += `event.data sample: ${sample}\n`;
+                        } catch(e2) { msg += `stringify err: ${e2.message}\n`; }
+
+                        dbg.textContent += msg + '---\n';
+                    } catch(e2) { dbg.textContent += `debug err: ${e2.message}\n`; }
                 }
 
                 processBlock(block);
