@@ -518,7 +518,7 @@ function processBlock(blockInfo) {
 
     for (let i = 1; i < txs.length; i++) {
         const tx = txs[i];
-        const txid = tx.id || tx.transactionId;
+        const txid = tx.verboseData?.transactionId || tx.id || tx.transactionId;
         if (!txid) continue;
 
         let entry = State.txMap.get(txid);
@@ -710,7 +710,9 @@ async function main() {
                             const tk = Object.getOwnPropertyNames(tx0).slice(0, 15);
                             msg += `  tx[0] keys: [${tk.join(', ')}]\n`;
                             msg += `  tx[0].id = ${String(tx0.id)}\n`;
-                            msg += `  tx[0].transactionId = ${String(tx0.transactionId)}\n`;
+                            msg += `  tx[0].verboseData?.transactionId = ${String(tx0.verboseData?.transactionId)}\n`;
+                            const vdKeys = tx0.verboseData ? Object.keys(tx0.verboseData) : [];
+                            msg += `  tx[0].verboseData keys: [${vdKeys.join(', ')}]\n`;
                         }
                     } else if (txs && !Array.isArray(txs)) {
                         msg += `  txs value: ${String(txs).slice(0, 100)}\n`;
