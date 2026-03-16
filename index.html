@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaspa TX Spread</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f1923;
+    color: #c8d6e5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #152232;
+    border-bottom: 1px solid #1e3a52;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #49d0b0;
+}
+
+.header .subtitle {
+    font-size: 12px;
+    color: #6b8299;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4757;
+    transition: background 0.3s;
+}
+
+.status-dot.connected {
+    background: #2ed573;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+}
+
+.stat-label {
+    color: #6b8299;
+}
+
+.stat-value {
+    color: #c8d6e5;
+    font-weight: 500;
+}
+
+.stat-value.highlight {
+    color: #ffa502;
+}
+
+/* Main layout */
+.main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 16px;
+    gap: 16px;
+    overflow: hidden;
+}
+
+/* Chart panel */
+.chart-panel {
+    background: #152232;
+    border-radius: 8px;
+    padding: 16px;
+    flex: 0 0 280px;
+    position: relative;
+}
+
+.chart-panel .panel-title {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    color: #8faabe;
+}
+
+.chart-container {
+    width: 100%;
+    height: 230px;
+    position: relative;
+}
+
+canvas#chart {
+    width: 100%;
+    height: 100%;
+}
+
+/* Table panel */
+.table-panel {
+    background: #152232;
+    border-radius: 8px;
+    padding: 16px;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-panel .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.table-panel .panel-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8faabe;
+}
+
+.table-scroll {
+    overflow-y: auto;
+    flex: 1;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+thead th {
+    text-align: left;
+    padding: 8px 12px;
+    color: #6b8299;
+    font-weight: 500;
+    border-bottom: 1px solid #1e3a52;
+    position: sticky;
+    top: 0;
+    background: #152232;
+}
+
+tbody tr {
+    border-bottom: 1px solid #1a2d40;
+    transition: background 0.15s;
+}
+
+tbody tr:hover {
+    background: #1a2d40;
+}
+
+td {
+    padding: 7px 12px;
+    white-space: nowrap;
+}
+
+td.txid {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #49d0b0;
+    cursor: pointer;
+}
+
+td.txid:hover {
+    text-decoration: underline;
+}
+
+td.count {
+    font-weight: 600;
+    text-align: center;
+    min-width: 50px;
+}
+
+td.time {
+    color: #6b8299;
+    min-width: 70px;
+}
+
+/* Block count colors */
+.count-1 { color: #2ed573; }
+.count-low { color: #ffa502; }
+.count-mid { color: #ff6b35; }
+.count-high { color: #ff4757; }
+
+/* Loading overlay */
+.loading {
+    position: fixed;
+    inset: 0;
+    background: #0f1923;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity 0.4s;
+}
+
+.loading.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #1e3a52;
+    border-top-color: #49d0b0;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin-top: 16px;
+    color: #6b8299;
+    font-size: 14px;
+}
+
+/* Legend */
+.legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #6b8299;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0f1923; }
+::-webkit-scrollbar-thumb { background: #1e3a52; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a4a66; }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">Loading WASM SDK...</div>
+</div>
+
+<!-- Header -->
+<div class="header">
+    <div class="header-left">
+        <div class="status-dot" id="status-dot"></div>
+        <div>
+            <h1>Kaspa TX Spread</h1>
+            <div class="subtitle">Transaction duplication across parallel blocks</div>
+        </div>
+    </div>
+    <div class="header-right">
+        <div>
+            <span class="stat-label">Blocks: </span>
+            <span class="stat-value" id="stat-blocks">0</span>
+        </div>
+        <div>
+            <span class="stat-label">TXs tracked: </span>
+            <span class="stat-value" id="stat-txs">0</span>
+        </div>
+        <div>
+            <span class="stat-label">Avg spread: </span>
+            <span class="stat-value highlight" id="stat-avg">-</span>
+        </div>
+        <div>
+            <span class="stat-label">Max: </span>
+            <span class="stat-value highlight" id="stat-max">-</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+    <!-- Chart -->
+    <div class="chart-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="panel-title">Block count per TX (recent)</span>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background:#2ed573"></div> 1 block</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ffa502"></div> 2-5</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ff6b35"></div> 6-10</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ff4757"></div> 11+</div>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-panel">
+        <div class="panel-header">
+            <span class="panel-title">Transactions</span>
+            <span class="stat-label" id="table-info"></span>
+        </div>
+        <div class="table-scroll" id="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Tx ID</th>
+                        <th style="text-align:center">Blocks</th>
+                    </tr>
+                </thead>
+                <tbody id="tx-table-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+import * as kaspaModule from './kaspa-core.js';
+
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+    MAX_CHART_BARS: 150,        // Max bars visible on chart
+    MAX_TABLE_ROWS: 200,        // Max rows in table
+    MAX_TRACKED_TXS: 5000,      // Ring buffer size for TX tracking
+    SETTLE_TIME_MS: 10000,      // Wait 10s before considering TX "settled"
+    CHART_UPDATE_INTERVAL: 1000, // Chart redraw interval
+    TABLE_UPDATE_INTERVAL: 500,  // Table update interval
+};
+
+// ============================================================
+// STATE
+// ============================================================
+const State = {
+    rpcClient: null,
+    kaspa: null,
+    isConnected: false,
+
+    // TX tracking: txid -> { blockHashes: Set, firstSeen: timestamp }
+    txMap: new Map(),
+    // Insertion-order ring: array of txids
+    txOrder: [],
+    txOrderHead: 0,
+
+    // Stats
+    totalBlocks: 0,
+    totalTxsSeen: 0,
+
+    // UI throttle
+    lastChartUpdate: 0,
+    lastTableUpdate: 0,
+    needsChartUpdate: false,
+    needsTableUpdate: false,
+};
+
+// ============================================================
+// DOM
+// ============================================================
+const DOM = {
+    loading: document.getElementById('loading'),
+    loadingText: document.getElementById('loading-text'),
+    statusDot: document.getElementById('status-dot'),
+    statBlocks: document.getElementById('stat-blocks'),
+    statTxs: document.getElementById('stat-txs'),
+    statAvg: document.getElementById('stat-avg'),
+    statMax: document.getElementById('stat-max'),
+    tableBody: document.getElementById('tx-table-body'),
+    tableInfo: document.getElementById('table-info'),
+    chart: document.getElementById('chart'),
+};
+
+// ============================================================
+// CHART (Canvas direct — no library needed)
+// ============================================================
+const Chart = {
+    ctx: null,
+    dpr: 1,
+
+    init() {
+        this.ctx = DOM.chart.getContext('2d');
+        this.dpr = window.devicePixelRatio || 1;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    },
+
+    resize() {
+        const rect = DOM.chart.parentElement.getBoundingClientRect();
+        DOM.chart.width = rect.width * this.dpr;
+        DOM.chart.height = rect.height * this.dpr;
+        DOM.chart.style.width = rect.width + 'px';
+        DOM.chart.style.height = rect.height + 'px';
+        this.ctx.scale(this.dpr, this.dpr);
+        this.needsRedraw = true;
+    },
+
+    getBarColor(count) {
+        if (count <= 1) return '#2ed573';
+        if (count <= 5) return '#ffa502';
+        if (count <= 10) return '#ff6b35';
+        return '#ff4757';
+    },
+
+    draw(txData) {
+        const ctx = this.ctx;
+        const w = DOM.chart.width / this.dpr;
+        const h = DOM.chart.height / this.dpr;
+
+        // Clear
+        ctx.clearRect(0, 0, w, h);
+
+        if (txData.length === 0) {
+            ctx.fillStyle = '#6b8299';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Waiting for transactions...', w / 2, h / 2);
+            return;
+        }
+
+        // Layout
+        const marginLeft = 35;
+        const marginBottom = 5;
+        const marginTop = 10;
+        const marginRight = 10;
+        const chartW = w - marginLeft - marginRight;
+        const chartH = h - marginTop - marginBottom;
+
+        // Find max count for Y scale
+        const maxCount = Math.max(1, ...txData.map(d => d.count));
+        const yMax = maxCount + 1;
+
+        // Bar dimensions
+        const barCount = txData.length;
+        const barWidth = Math.max(1, Math.min(8, (chartW / barCount) * 0.8));
+        const gap = Math.max(0.5, (chartW / barCount) * 0.2);
+        const totalBarWidth = barWidth + gap;
+
+        // Start X so bars are right-aligned
+        const startX = marginLeft + chartW - barCount * totalBarWidth;
+
+        // Y-axis labels
+        ctx.fillStyle = '#4a6478';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        const yStep = yMax <= 10 ? 1 : yMax <= 50 ? 5 : 10;
+        for (let v = 0; v <= yMax; v += yStep) {
+            const y = marginTop + chartH - (v / yMax) * chartH;
+            ctx.fillText(v.toString(), marginLeft - 5, y);
+
+            // Grid line
+            ctx.strokeStyle = '#1a2d40';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(marginLeft, y);
+            ctx.lineTo(w - marginRight, y);
+            ctx.stroke();
+        }
+
+        // Draw bars
+        for (let i = 0; i < barCount; i++) {
+            const d = txData[i];
+            const x = startX + i * totalBarWidth;
+            const barH = (d.count / yMax) * chartH;
+            const y = marginTop + chartH - barH;
+
+            ctx.fillStyle = this.getBarColor(d.count);
+            ctx.fillRect(x, y, barWidth, barH);
+        }
+    }
+};
+
+// ============================================================
+// TX TRACKING
+// ============================================================
+function processBlock(blockInfo) {
+    State.totalBlocks++;
+
+    const blockHash = blockInfo.header.hash;
+    const timestamp = Date.now();
+
+    // Skip coinbase (index 0), process remaining TXs
+    const txs = blockInfo.transactions;
+    if (!txs || txs.length <= 1) return;
+
+    for (let i = 1; i < txs.length; i++) {
+        const tx = txs[i];
+        const txid = tx.id || tx.transactionId;
+        if (!txid) continue;
+
+        let entry = State.txMap.get(txid);
+        if (!entry) {
+            entry = { blockHashes: new Set(), firstSeen: timestamp };
+            State.txMap.set(txid, entry);
+            State.txOrder.push(txid);
+            State.totalTxsSeen++;
+
+            // Ring buffer eviction
+            if (State.txOrder.length > CONFIG.MAX_TRACKED_TXS) {
+                const oldTxid = State.txOrder.shift();
+                State.txMap.delete(oldTxid);
+            }
+        }
+        entry.blockHashes.add(blockHash);
+    }
+
+    State.needsChartUpdate = true;
+    State.needsTableUpdate = true;
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function getRecentTxData() {
+    // Get recent TXs with their block counts
+    const result = [];
+    const len = State.txOrder.length;
+    const start = Math.max(0, len - CONFIG.MAX_CHART_BARS);
+
+    for (let i = start; i < len; i++) {
+        const txid = State.txOrder[i];
+        const entry = State.txMap.get(txid);
+        if (entry) {
+            result.push({
+                txid,
+                count: entry.blockHashes.size,
+                firstSeen: entry.firstSeen,
+            });
+        }
+    }
+    return result;
+}
+
+function updateStats() {
+    DOM.statBlocks.textContent = State.totalBlocks.toLocaleString();
+    DOM.statTxs.textContent = State.totalTxsSeen.toLocaleString();
+
+    // Calculate average and max from all tracked TXs
+    let sum = 0;
+    let max = 0;
+    let count = 0;
+    for (const entry of State.txMap.values()) {
+        const c = entry.blockHashes.size;
+        sum += c;
+        if (c > max) max = c;
+        count++;
+    }
+
+    DOM.statAvg.textContent = count > 0 ? (sum / count).toFixed(1) : '-';
+    DOM.statMax.textContent = max > 0 ? max.toString() : '-';
+}
+
+function updateChart() {
+    const data = getRecentTxData();
+    Chart.draw(data);
+}
+
+function countClass(count) {
+    if (count <= 1) return 'count-1';
+    if (count <= 5) return 'count-low';
+    if (count <= 10) return 'count-mid';
+    return 'count-high';
+}
+
+function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function truncateTxid(txid) {
+    if (txid.length <= 20) return txid;
+    return txid.slice(0, 10) + '...' + txid.slice(-8);
+}
+
+function updateTable() {
+    const len = State.txOrder.length;
+    const start = Math.max(0, len - CONFIG.MAX_TABLE_ROWS);
+    const fragment = document.createDocumentFragment();
+
+    // Build rows newest-first
+    for (let i = len - 1; i >= start; i--) {
+        const txid = State.txOrder[i];
+        const entry = State.txMap.get(txid);
+        if (!entry) continue;
+
+        const count = entry.blockHashes.size;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="time">${formatTime(entry.firstSeen)}</td>
+            <td class="txid" title="${txid}">${truncateTxid(txid)}</td>
+            <td class="count ${countClass(count)}">${count}</td>
+        `;
+        fragment.appendChild(tr);
+    }
+
+    DOM.tableBody.innerHTML = '';
+    DOM.tableBody.appendChild(fragment);
+    DOM.tableInfo.textContent = `Showing ${Math.min(len, CONFIG.MAX_TABLE_ROWS)} of ${len}`;
+}
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+function renderLoop() {
+    const now = Date.now();
+
+    if (State.needsChartUpdate && now - State.lastChartUpdate > CONFIG.CHART_UPDATE_INTERVAL) {
+        updateChart();
+        updateStats();
+        State.lastChartUpdate = now;
+        State.needsChartUpdate = false;
+    }
+
+    if (State.needsTableUpdate && now - State.lastTableUpdate > CONFIG.TABLE_UPDATE_INTERVAL) {
+        updateTable();
+        State.lastTableUpdate = now;
+        State.needsTableUpdate = false;
+    }
+
+    requestAnimationFrame(renderLoop);
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+async function main() {
+    Chart.init();
+
+    try {
+        DOM.loadingText.textContent = 'Initializing WASM SDK...';
+        const kaspa = await kaspaModule.default();
+        State.kaspa = kaspa;
+
+        DOM.loadingText.textContent = 'Connecting to Kaspa network...';
+        const resolver = new kaspaModule.Resolver();
+        State.rpcClient = new kaspaModule.RpcClient({
+            resolver,
+            networkId: 'mainnet',
+        });
+
+        await State.rpcClient.connect();
+        State.isConnected = true;
+        DOM.statusDot.classList.add('connected');
+
+        DOM.loadingText.textContent = 'Subscribing to blocks...';
+
+        // Subscribe to block-added events
+        State.rpcClient.addEventListener('block-added', (event) => {
+            try {
+                const block = event.data.block;
+                processBlock(block);
+            } catch (e) {
+                console.error('Block processing error:', e);
+            }
+        });
+
+        await State.rpcClient.subscribeBlockAdded();
+
+        // Hide loading
+        DOM.loading.classList.add('hidden');
+
+        // Start render loop
+        renderLoop();
+
+    } catch (error) {
+        DOM.loadingText.textContent = 'Error: ' + error.message;
+        console.error('Startup error:', error);
+    }
+}
+
+main();
+</script>
+
+</body>
+</html>
