@@ -517,6 +517,11 @@ function processBlock(blockInfo) {
         if (!raw) continue;
         const txid = String(raw);
 
+        // Diagnostic: log first 3 TXs of every 100th block
+        if (State.totalBlocks % 100 === 0 && i <= 3) {
+            console.log(`[diag] block#${State.totalBlocks} tx[${i}] verboseData?=${!!tx.verboseData} id_type=${typeof tx.id} txid=${txid.slice(0,16)}...`);
+        }
+
         let entry = State.txMap.get(txid);
         if (!entry) {
             entry = { blockHashes: new Set(), firstSeen: timestamp };
