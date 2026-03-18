@@ -352,7 +352,7 @@ import * as kaspaModule from './kaspa-core.js';
 const CONFIG = {
     MAX_CHART_BARS: 150,        // Max bars visible on chart
     MAX_TABLE_ROWS: 200,        // Max rows in table
-    MAX_TRACKED_TXS: 5000,      // Ring buffer size for TX tracking
+    MAX_TRACKED_TXS: 10000,     // Ring buffer size for TX tracking
     CHART_UPDATE_INTERVAL: 1000, // Chart redraw interval
     TABLE_UPDATE_INTERVAL: 500,  // Table update interval
 };
@@ -567,8 +567,8 @@ function updateStats() {
     // Calculate average and max from latter half of tracked TXs
     // (older TXs have had time to accumulate spread)
     const entries = [...State.txMap.values()];
-    const half = Math.floor(entries.length / 2);
-    const subset = entries.slice(0, half); // Map insertion order: older first
+    const fifth = Math.floor(entries.length / 5);
+    const subset = entries.slice(0, fifth); // Map insertion order: older first
 
     let sum = 0;
     let max = 0;
