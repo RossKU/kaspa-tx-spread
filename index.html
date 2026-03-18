@@ -564,18 +564,21 @@ function updateStats() {
     DOM.statBlocks.textContent = State.totalBlocks.toLocaleString();
     DOM.statTxs.textContent = State.totalTxsSeen.toLocaleString();
 
-    // Calculate average and max from all tracked TXs
+    // Calculate average and max from latter half of tracked TXs
+    // (older TXs have had time to accumulate spread)
+    const entries = [...State.txMap.values()];
+    const half = Math.floor(entries.length / 2);
+    const subset = entries.slice(0, half); // Map insertion order: older first
+
     let sum = 0;
     let max = 0;
-    let count = 0;
-    for (const entry of State.txMap.values()) {
+    for (const entry of subset) {
         const c = entry.blockHashes.size;
         sum += c;
         if (c > max) max = c;
-        count++;
     }
 
-    DOM.statAvg.textContent = count > 0 ? (sum / count).toFixed(1) : '-';
+    DOM.statAvg.textContent = subset.length > 0 ? (sum / subset.length).toFixed(1) : '-';
     DOM.statMax.textContent = max > 0 ? max.toString() : '-';
 }
 
